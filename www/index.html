@@ -1,0 +1,273 @@
+<!-- 
+
+REF: https://www.w3schools.com/html/html5_video.asp 
+
+TODO: http://www.misfitgeek.com/html5-off-line-storing-and-retrieving-videos-with-indexeddb/
+TODO: https://forum.ionicframework.com/t/video-player-ionic-resolved/45993/18
+TODO: https://devdactic.com/images-videos-fullscreen-ionic/
+TODO: https://www.npmjs.com/package/cordova-plugin-html5video
+TODO: https://www.raymondcamden.com/2015/06/05/cordova-sample-capture-and-display-video/
+TODO: https://www.npmjs.com/package/cordova-plugin-media-capture
+TODO: https://cordova.apache.org/docs/en/latest/reference/cordova-plugin-media-capture/index.html
+
+-->
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>Starter</title>
+  <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no, width=device-width">
+  <!-- Internal Library-->
+    <link href="lib/ionic/css/ionic.css" rel="stylesheet">
+    <script src="lib/ionic/js/ionic.bundle.js"></script>
+    
+  <!-- Cloud Library -->
+  <!--
+  <link href="//cdnjs.cloudflare.com/ajax/libs/ionic/1.3.2/css/ionic.css" rel="stylesheet">
+  <script src="//cdnjs.cloudflare.com/ajax/libs/ionic/1.3.2/js/ionic.bundle.min.js"></script>
+  -->
+  <!-- Needed for Cordova/PhoneGap (will be a 404 during development) -->
+  <script src="cordova.js"></script>
+</head>
+
+<body ng-app="app">
+  <div>
+    <div>
+      <ion-nav-bar class="bar-stable">
+        <ion-nav-back-button></ion-nav-back-button>
+      </ion-nav-bar>
+      <ion-nav-view>
+
+      </ion-nav-view>
+    </div>
+  </div>
+
+  <script id="home.html" type="text/ng-template">
+    <ion-view title="Home" id="page1" style="background-color:#242424;">
+      <ion-content padding="true" class="has-header">
+        <div class="divMedia" style="text-align:center;color:yellow;">
+          <input id="inputFile" type="file" accept="image/*,video/*" style="display:none;" />
+          <div class="button-bar">
+            <button ng-click="getMedia()" class="button button-stable button-block icon ion-folder"></button>
+            <button ng-click="getCamera()" class="button button-stable button-block icon ion-camera"></button>
+            <button ng-click="getCamera()" class="button button-stable button-block icon ion-videocamera"></button>
+          </div>
+          <!-- button-bar -->
+          THUMBNAIL
+          <output><h2>Thumbnails (click to remove, hover to see filesize)</h2></output>
+          <div id="divImgThumb"></div>
+          <div id="infoSmall"></div>
+          <img id="imgSmall" src=""/>
+          ORIGINAL
+          <div id="infoOrig"></div>
+          <img id="imgOrig" src=""/>
+          <div id="vdoOrig"></div>
+        </div>
+        <!-- divMedia -->
+      </ion-content>
+    </ion-view>
+  </script>
+
+  <script>
+    angular.module('app', ['ionic'])
+      .controller('homeCtrl', ['$scope', '$stateParams', '$ionicPlatform',
+        function($scope, $stateParams, $ionicPlatform) {
+          $scope.isCordova = false;
+          ionic.Platform.ready(function() {
+            // will execute when device is ready, or immediately if the device is already ready.
+            if (ionic.Platform.is("cordova")) {
+              $scope.isCordova = true;
+              $scope.$apply();
+            }
+          }); /*isCordovaPlatform*/
+          /********** UI HaNDLeRS **********/
+          var elmVdoOrig = document.getElementById('vdoOrig');
+          var elmImgOrig = document.getElementById('imgOrig');
+          var elmImgSmall = document.getElementById('imgSmall');
+          var infoOrig = document.getElementById('infoOrig');
+          var infoSmall = document.getElementById('infoSmall');
+          document.getElementById("inputFile")
+            .addEventListener("change", onInputFileChanged);
+          $scope.getMedia = function() {
+            if ($scope.isCordova == true) {
+              getCordovaImage()
+            } else if ($scope.isCordova == false) {
+              document.getElementById("inputFile").click();
+            } /*isCordova*/
+          } /*getMedia*/
+          $scope.getCamera = function() {
+            if ($scope.isCordova === true) {
+              getCordovaCamera()
+            } else if ($scope.isCordova === false) {
+              alert('Cordova Camera not available')
+            } /*isCordova*/
+          } /*getCamera*/
+          
+          
+          
+          
+          function onInputFileChanged(elm) {
+            var file = elm.target.files[0];
+            if ((file.type).split("/")[0] == "video") {
+              elmVdoOrig.onloadeddata = function() {
+                convertVdoSrcToSmallDataURL(elmVdoOrig, elmImgSmall)
+              }
+              elmVdoOrig.src = window.URL.createObjectURL(file);
+            } /*if video*/
+            else if ((file.type).split("/")[0] == "image") {
+              var objUrl = URL.createObjectURL(file)
+              console.log(objUrl)
+              var htmlCodes = '<img id="imgOrig" src="' + objUrl + '"/>'
+              document.querySelector('#divImgOrig').innerHTML = htmlCodes;
+              imgOrig=document.getElementById('imgOrig');
+              imgOrig.onload = function(){
+              var myCan = document.createElement('canvas');
+                myCan.id = 'myTempCanvas';
+                myCan.width = 100;
+                myCan.height = 100;
+                if (myCan.getContext) {
+                  var cntxt = myCan.getContext('2d');
+                  cntxt.drawImage(imgOrig, 0, 0, myCan.width, myCan.height);
+                  var dataURL = myCan.toDataURL();
+                  console.log(dataURL);
+                  var htmlCodes = '<img id="test" src="' + dataURL + '"/>'
+                  document.querySelector('#divImgThumb').innerHTML = htmlCodes;
+                }
+          }  /*onLoad*/
+            } /*else if image*/
+          } /*onInputFileChanged*/
+          
+          
+
+          
+          
+          
+          function convertVdoSrcToSmallDataURL(elmSource, elmTarget) {
+            var startw = 0
+            var starth = 0
+            var longer = 0
+            var shorter = 0
+            var ratio = 0
+            if (elmSource.videoWidth > elmSource.videoHeight) {
+              longer = elmSource.videoWidth
+              shorter = elmSource.videoHeight
+              startw = parseInt(-1 * (parseFloat(longer / 2) - parseFloat(shorter / 2)))
+            } else {
+              longer = elmSource.videoHeight
+              shorter = elmSource.videoWidth
+              starth = parseInt(-1 * (parseFloat(longer / 2) - parseFloat(shorter / 2)) * 1)
+            }
+            var canvas = document.createElement('canvas');
+            canvas.width = 100;
+            canvas.height = 100;
+            ratio = shorter / canvas.width;
+            var context = canvas.getContext('2d');
+            context.drawImage(elmSource, startw / ratio, starth / ratio, elmSource.videoWidth / ratio, elmSource.videoHeight / ratio);
+            elmTarget.onload = function() {
+              elmTarget.style = "display:block";
+              infoSmall.innerHTML = "(dataURL size:" + elmTarget.src.length + " chars)";
+              infoSmall.innerHTML += "<br/>(dimension:" + elmTarget.naturalWidth + " x " + elmTarget.naturalHeight + " )";
+            }
+            elmTarget.src = canvas.toDataURL();
+          }
+
+          function convertImgSrcToSmallDataURL(elmSource, elmTarget) {
+            var startw = 0
+            var starth = 0
+            var longer = 0
+            var shorter = 0
+            var ratio = 0
+            if (elmSource.naturalWidth > elmSource.naturalHeight) {
+              longer = elmSource.naturalWidth
+              shorter = elmSource.naturalHeight
+              startw = parseInt(-1 * (parseFloat(longer / 2) - parseFloat(shorter / 2)))
+            } else {
+              longer = elmSource.naturalHeight
+              shorter = elmSource.naturalWidth
+              starth = parseInt(-1 * (parseFloat(longer / 2) - parseFloat(shorter / 2)) * 1)
+            }
+            var canvas = document.createElement('canvas');
+            canvas.width = 100;
+            canvas.height = 100;
+            ratio = shorter / canvas.width;
+            var context = canvas.getContext('2d');
+            context.drawImage(elmSource, startw / ratio, starth / ratio, elmSource.naturalWidth / ratio, elmSource.naturalHeight / ratio);
+            elmTarget.onload = function() {
+              elmTarget.style = "display:block";
+              infoSmall.innerHTML = "(dataURL size:" + elmTarget.src.length + " chars)";
+              infoSmall.innerHTML += "<br/>(dimension:" + elmTarget.naturalWidth + " x " + elmTarget.naturalHeight + " )";
+            }
+            elmTarget.src = canvas.toDataURL();
+          }
+          /********** CORDOVA DEVICE HANDLER **********/
+          /*----------PLAIN CORDOVA CODES----------*/
+          var pictureSource; // picture source
+          var destinationType; // sets the format of returned value
+          // Wait for device API libraries to load
+          document.addEventListener("deviceready", onDeviceReady, false);
+          // device APIs are available
+          function onDeviceReady() {
+            pictureSource = navigator.camera.PictureSourceType;
+            destinationType = navigator.camera.DestinationType;
+          }
+
+          function onImageURISuccess(imageURI) {
+            infoOrig.innerHTML = ""
+            infoSmall.innerHTML = ""
+            elmImgOrig.onload = function() {
+              convertImgSrcToSmallDataURL(elmImgOrig, elmImgSmall)
+              window.resolveLocalFileSystemURI(imageURI, function(fileEntry) {
+                fileEntry.file(function(fileObj) {
+                  //console.log("Size = " + fileObj.size);
+                  infoOrig.innerHTML = fileObj.name + "<br/>(blob size:" + fileObj.size + " bytes)";
+                  infoOrig.innerHTML += "<br/>(dimension:" + elmImgOrig.naturalWidth + " x " + elmImgOrig.naturalHeight + " )";
+                }); /*fileEntry*/
+              }); /*resolve...*/
+            }
+            elmImgOrig.src = imageURI;
+          }
+          // A button will call this function
+          //
+          function getCordovaCamera() {
+            navigator.camera.getPicture(onImageURISuccess, onFail, {
+              quality: 60,
+              destinationType: Camera.DestinationType.FILE_URI,
+              allowEdit: true,
+              correctOrientation: true,
+              encodingType: Camera.EncodingType.JPEG,
+              sourceType: pictureSource.CAMERA
+            });
+          }
+          // A button will call this function
+          //
+          function getCordovaImage() {
+            // Retrieve image file location from specified source
+            navigator.camera.getPicture(onImageURISuccess, onFail, {
+              quality: 60,
+              destinationType: Camera.DestinationType.FILE_URI,
+              allowEdit: true,
+              correctOrientation: true,
+              encodingType: Camera.EncodingType.JPEG,
+              sourceType: pictureSource.SAVEDPHOTOALBUM
+            });
+          }
+          // Called if something bad happens.
+          //
+          function onFail(message) {
+            alert('Failed because: ' + message);
+          }
+        }
+      ])
+      .config(function($stateProvider, $urlRouterProvider) {
+        $stateProvider
+          .state('home', {
+            url: '/page1',
+            templateUrl: 'home.html',
+            controller: 'homeCtrl'
+          })
+        $urlRouterProvider.otherwise('/page1')
+      });
+  </script>
+</body>
+
+</html>
